@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Job Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230d1828'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%238ea0ff' stroke-opacity='.5'/%3E%3Ccircle cx='21' cy='11' r='3' fill='%23ffb938'/%3E%3C/svg%3E">
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); color-scheme: light; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+
+/* Layout: an instrument header (live scope + scan status), a sticky filter bar, a feed of role cards, then the scan log beside the radar's settings. */
+:root {
+  --bg: #f1f3f7;
+  --surface: #ffffff;
+  --ink: #111925;
+  --muted: #5a6879;
+  --faint: #8b97a6;
+  --line: #dce2ea;
+  --accent: #2741e6;
+  --accent-soft: #e5e9ff;
+  --ping: #c97c00;
+  --ping-soft: #fff1d4;
+  --good: #187a4c;
+  --good-soft: #def2e7;
+  --mid: #9a6200;
+  --mid-soft: #fbefd9;
+  --low: #7d8896;
+  --low-soft: #edf0f4;
+  --scope-bg: #0d1828;
+  --scope-ring: rgba(132, 160, 255, .22);
+  --scope-sweep: rgba(110, 140, 255, .32);
+  --scope-blip: #8ea0ff;
+  --scope-ping: #ffb938;
+  --display: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1117; --surface: #131a22; --ink: #e4eaf1; --muted: #95a3b4; --faint: #6d7a8a; --line: #233040;
+    --accent: #8796ff; --accent-soft: #1d2452; --ping: #f2b23e; --ping-soft: #3a2a0c;
+    --good: #4cc48a; --good-soft: #10301f; --mid: #e3aa4c; --mid-soft: #33260e; --low: #7a8797; --low-soft: #1b232d;
+    --scope-bg: #08101b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1117; --surface: #131a22; --ink: #e4eaf1; --muted: #95a3b4; --faint: #6d7a8a; --line: #233040;
+  --accent: #8796ff; --accent-soft: #1d2452; --ping: #f2b23e; --ping-soft: #3a2a0c;
+  --good: #4cc48a; --good-soft: #10301f; --mid: #e3aa4c; --mid-soft: #33260e; --low: #7a8797; --low-soft: #1b232d;
+  --scope-bg: #08101b; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+a { color: var(--accent); }
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- header ---------- */
+.head { display: grid; grid-template-columns: 188px 1fr; gap: 28px; align-items: center; }
+.scope { width: 188px; height: 188px; border-radius: 50%; background: var(--scope-bg); position: relative; overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--scope-ring), 0 10px 30px -18px rgba(13, 24, 40, .6); }
+.scope canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
+.title-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h1 { font: 800 clamp(34px, 6vw, 52px)/1 var(--display); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.live { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--mono); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em; }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.live.off i { background: var(--faint); box-shadow: 0 0 0 3px var(--low-soft); }
+.lede { color: var(--muted); margin: 10px 0 18px; max-width: 62ch; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.stat { background: var(--surface); padding: 12px 14px; min-width: 0; }
+.stat b { display: block; font: 600 24px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12.5px; color: var(--muted); }
+.stat.ping b { color: var(--ping); }
+.stat.good b { color: var(--good); }
+.scanline { margin-top: 10px; font: 12.5px var(--mono); color: var(--muted); display: flex; gap: 6px 16px; flex-wrap: wrap; }
+
+/* ---------- toolbar ---------- */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); margin: 28px 0 14px;
+  padding-block: 10px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tabs { display: flex; gap: 2px; background: var(--low-soft); padding: 3px; border-radius: 9px; flex-wrap: wrap; }
+.tabs button { border: 0; background: none; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-weight: 500;
+  color: var(--muted); font-size: 14px; }
+.tabs button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.tabs button .n { font: 11.5px var(--mono); color: var(--faint); margin-left: 4px; }
+.filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.filters label { font-size: 13px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.filters select, .filters input[type="search"] { background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 10px; font-size: 13.5px; }
+.filters input[type="search"] { width: 170px; }
+
+/* ---------- feed ---------- */
+.group-h { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin: 22px 0 10px;
+  font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); flex-wrap: wrap; }
+.group-h:first-child { margin-top: 4px; }
+.feed { display: grid; gap: 8px; }
+.job { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 14px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; transition: border-color .15s; }
+.job:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.job.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.job.is-skip { opacity: .55; }
+.fit { width: 52px; height: 52px; position: relative; }
+.fit svg { width: 52px; height: 52px; transform: rotate(-90deg); }
+.fit circle { fill: none; stroke-width: 4; }
+.fit .track { stroke: var(--low-soft); }
+.fit b { position: absolute; inset: 0; display: grid; place-items: center; font: 600 15px var(--mono); }
+.fit.good .arc { stroke: var(--good); } .fit.good b { color: var(--good); }
+.fit.mid .arc { stroke: var(--mid); } .fit.mid b { color: var(--mid); }
+.fit.low .arc { stroke: var(--low); } .fit.low b { color: var(--low); }
+.main { min-width: 0; }
+.job h3 { margin: 0; font-size: 16.5px; line-height: 1.3; font-weight: 600; }
+.job h3 a { color: var(--ink); text-decoration: none; }
+.job h3 a:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.co { color: var(--muted); font-size: 14px; margin-top: 2px; overflow-wrap: anywhere; }
+.co strong { color: var(--ink); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.chip { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--low-soft); color: var(--muted); white-space: nowrap; }
+.chip.ok { background: var(--good-soft); color: var(--good); }
+.chip.warn { background: var(--mid-soft); color: var(--mid); }
+.chip.early { background: var(--ping-soft); color: var(--ping); font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+.chip.early::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: ping 1.6s ease-out infinite; }
+.chip.mono { font-family: var(--mono); font-size: 11.5px; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ping) 60%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+.why { margin: 8px 0 0; font-size: 13.5px; color: var(--muted); }
+.acts { display: flex; gap: 6px; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  font-size: 13px; font-weight: 500; color: var(--ink); text-decoration: none; white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; }
+.btn:hover { border-color: var(--faint); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.btn.applied.on { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.empty { border: 1px dashed var(--line); border-radius: var(--r); padding: 28px 22px; color: var(--muted); background: var(--surface); }
+.empty h3 { margin: 0 0 6px; color: var(--ink); font-size: 17px; }
+.empty p { margin: 0; max-width: 60ch; }
+.more { margin-top: 12px; }
+
+/* ---------- lower panels ---------- */
+.lower { margin-top: 44px; }
+h2 { font: 600 20px/1.2 var(--display); margin: 0 0 4px; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+th.num { text-align: right; }
+tr:last-child td { border-bottom: 0; }
+td.note { white-space: normal; color: var(--muted); min-width: 180px; }
+form.tune { display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.tune label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.tune label span { font-weight: 400; color: var(--muted); }
+.tune textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); resize: vertical; min-height: 44px; font-size: 13.5px; }
+.tune .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.saved-msg { font-size: 13px; color: var(--good); }
+.foot { margin-top: 36px; font-size: 12.5px; color: var(--faint); }
+
+@media (max-width: 760px) {
+  .head { grid-template-columns: 1fr; gap: 18px; }
+  .scope { width: 132px; height: 132px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lower { grid-template-columns: 1fr; }
+  .filters { margin-left: 0; }
+  .filters input[type="search"] { width: 100%; }
+  .filters label:last-child { flex: 1 1 100%; }
+  .job { grid-template-columns: 44px minmax(0, 1fr); }
+  .fit, .fit svg { width: 44px; height: 44px; }
+  .acts { grid-column: 1 / -1; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip.early::before { animation: none; }
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div class="scope" title="Latest scan: each blip is a role. Closer to the centre means a stronger fit; amber blips were posted in the last 24 hours.">
+      <canvas id="scope" width="376" height="376" aria-label="Radar of the latest scan's roles"></canvas>
+    </div>
+    <div>
+      <div class="title-row">
+        <h1>Job Radar</h1>
+        <span class="live off" id="live"><i></i><span id="liveText">loading</span></span>
+      </div>
+      <p class="lede">New product design roles, collected every morning and evening from company career pages, LinkedIn and job boards. Remote roles open to India and Delhi NCR come first.</p>
+      <div class="stats" aria-label="Latest scan summary">
+        <div class="stat"><b id="sNew">–</b><span>new this scan</span></div>
+        <div class="stat ping"><b id="sEarly">–</b><span>posted &lt; 24h</span></div>
+        <div class="stat good"><b id="sHigh">–</b><span>strong fit (75+)</span></div>
+        <div class="stat"><b id="sApplied">–</b><span>applied (this device)</span></div>
+      </div>
+      <div class="scanline mono"><span id="lastScan">No scan yet</span><span id="nextScan"></span></div>
+    </div>
+  </header>
+
+  <nav class="bar" aria-label="Filters">
+    <div class="tabs" role="group" aria-label="View">
+      <button id="tab-latest" data-view="latest" aria-pressed="true">Latest scan<span class="n" id="nLatest"></span></button>
+      <button id="tab-recent" data-view="recent" aria-pressed="false">Last 3 days<span class="n" id="nRecent"></span></button>
+      <button id="tab-saved" data-view="saved" aria-pressed="false">Saved<span class="n" id="nSaved"></span></button>
+      <button id="tab-applied" data-view="applied" aria-pressed="false">Applied<span class="n" id="nApplied"></span></button>
+    </div>
+    <div class="filters">
+      <label for="scope-filter">Show
+        <select id="scope-filter">
+          <option value="open">Open to me</option>
+          <option value="remote">Remote only</option>
+          <option value="ncr">Delhi NCR only</option>
+          <option value="all">Everything found</option>
+        </select>
+      </label>
+      <label for="sort">Sort
+        <select id="sort">
+          <option value="fit">Best fit</option>
+          <option value="new">Newest posting</option>
+        </select>
+      </label>
+      <label for="q"><input id="q" type="search" placeholder="Search role or company" autocomplete="off"></label>
+    </div>
+  </nav>
+
+  <main id="feed" aria-live="polite">
+    <div class="empty">
+      <h3>Loading the latest scan</h3>
+      <p>Scans run at 07:30 and 19:30 IST. New roles appear here, best fit first.</p>
+    </div>
+  </main>
+
+  <section class="lower">
+    <h2>Scan log</h2>
+    <p class="sub">Every run, newest first. "Kept" counts roles that passed the fit cut after duplicates and roles shown before were removed.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Scan</th><th class="num">Checked</th><th class="num">Kept</th><th class="num">Early</th><th class="num">75+</th><th>Sources</th></tr></thead>
+        <tbody id="log"><tr><td colspan="6" class="note">No scans yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="foot">Listings come from public boards and can close without notice; check each one before applying. Save, Applied and Hide are kept in this browser only.</p>
+</div>
+
+<script>
+(() => {
+  const OPEN = new Set(["ncr", "india-remote", "anywhere", "india", "check"]);
+  const ELIG = {
+    "ncr": ["Delhi NCR", "ok"], "india-remote": ["Remote · India", "ok"], "anywhere": ["Remote · worldwide", "ok"],
+    "india": ["India office", ""], "check": ["Remote · check region", "warn"], "region-locked": ["Region-locked", ""],
+  };
+  const TZ = "Asia/Kolkata";
+  const S = { index: [], scans: [], status: {}, view: "latest", scope: "open", sort: "fit", q: "", showHidden: false, ready: false, offline: false };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "#";
+
+  // ---------- this browser's own state ----------
+  function pick(o, keys) { const r = {}; keys.forEach((k) => { if (typeof o[k] === "string") r[k] = o[k]; }); return r; }
+  try { Object.assign(S, pick(JSON.parse(localStorage.getItem("radar-ui") || "{}"), ["view", "scope", "sort"])); } catch (e) {}
+  try { const st = JSON.parse(localStorage.getItem("radar-status") || "{}"); if (st && typeof st === "object") S.status = st; } catch (e) {}
+  function remember() { try { localStorage.setItem("radar-ui", JSON.stringify({ view: S.view, scope: S.scope, sort: S.sort })); } catch (e) {} }
+  function saveStatus() { try { localStorage.setItem("radar-status", JSON.stringify(S.status)); } catch (e) {} }
+
+  // ---------- time ----------
+  const fmtScan = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+  const fmtTime = new Intl.DateTimeFormat("en-IN", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false });
+  function ago(iso) {
+    if (!iso) return null;
+    const m = (Date.now() - new Date(iso).getTime()) / 60000;
+    if (m < 0) return "just now";
+    if (m < 60) return Math.max(1, Math.round(m)) + "m ago";
+    if (m < 60 * 24) return Math.round(m / 60) + "h ago";
+    const d = Math.round(m / 1440);
+    return d === 1 ? "1 day ago" : d + " days ago";
+  }
+  function nextScanLabel() {
+    const ist = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
+    const mins = ist.getHours() * 60 + ist.getMinutes();
+    if (mins < 450) return "next scan 07:30 IST";
+    if (mins < 1170) return "next scan 19:30 IST";
+    return "next scan 07:30 IST tomorrow";
+  }
+
+  // ---------- data shaping ----------
+  function allJobs() {
+    const map = new Map();
+    for (const sc of S.scans) for (const j of sc.jobs || []) if (!map.has(j.id)) map.set(j.id, { ...j, scanAt: sc.at, run: sc.run });
+    return map;
+  }
+  function statusOf(id) { return S.status[id]?.s || ""; }
+  function matches(j) {
+    if (S.scope === "open" && !OPEN.has(j.eligibility)) return false;
+    if (S.scope === "remote" && !["india-remote", "anywhere", "check"].includes(j.eligibility)) return false;
+    if (S.scope === "ncr" && j.eligibility !== "ncr") return false;
+    if (S.q) {
+      const hay = `${j.title} ${j.company} ${j.location} ${j.source}`.toLowerCase();
+      if (!S.q.toLowerCase().split(/\s+/).every((w) => hay.includes(w))) return false;
+    }
+    return true;
+  }
+  function sortJobs(list) {
+    const t = (j) => (j.posted ? new Date(j.posted).getTime() : 0);
+    return list.sort(S.sort === "new" ? (a, b) => t(b) - t(a) || b.fit - a.fit : (a, b) => b.fit - a.fit || t(b) - t(a));
+  }
+
+  // ---------- render ----------
+  function fitRing(f) {
+    const cls = f >= 75 ? "good" : f >= 55 ? "mid" : "low";
+    const c = 2 * Math.PI * 22;
+    return `<div class="fit ${cls}" title="Fit score ${f}/100"><svg viewBox="0 0 52 52" aria-hidden="true"><circle class="track" cx="26" cy="26" r="22"/><circle class="arc" cx="26" cy="26" r="22" stroke-dasharray="${(f / 100) * c} ${c}" stroke-linecap="round"/></svg><b>${f}</b></div>`;
+  }
+  function card(j) {
+    const st = statusOf(j.id);
+    const [el, elc] = ELIG[j.eligibility] || [j.eligibility, ""];
+    const posted = ago(j.posted);
+    const chips = [];
+    if (j.early) chips.push(`<span class="chip early">Early · ${esc(posted || "today")}</span>`);
+    else if (posted) chips.push(`<span class="chip mono">posted ${esc(posted)}</span>`);
+    chips.push(`<span class="chip ${elc}">${esc(el)}</span>`);
+    if (j.salary) chips.push(`<span class="chip">${esc(j.salary)}</span>`);
+    chips.push(`<span class="chip">via ${esc(j.source)}${j.also?.length ? " +" + j.also.length : ""}</span>`);
+    if (S.view === "applied" && S.status[j.id]?.at) chips.push(`<span class="chip ok">applied ${esc(ago(S.status[j.id].at))}</span>`);
+    return `<article class="job${st === "skip" ? " is-skip" : ""}" id="job-${esc(j.id)}">
+      ${fitRing(j.fit)}
+      <div class="main">
+        <h3><a href="${esc(safeUrl(j.url))}" target="_blank" rel="noopener">${esc(j.title)}</a></h3>
+        <div class="co"><strong>${esc(j.company)}</strong>${j.location ? " · " + esc(j.location) : ""}</div>
+        <div class="chips">${chips.join("")}</div>
+      </div>
+      <div class="acts">
+        <a class="btn primary" href="${esc(safeUrl(j.url))}" target="_blank" rel="noopener">Open listing ↗</a>
+        <button class="btn ${st === "saved" ? "on" : ""}" data-act="saved" data-id="${esc(j.id)}" aria-pressed="${st === "saved"}">${st === "saved" ? "Saved" : "Save"}</button>
+        <button class="btn applied ${st === "applied" ? "on" : ""}" data-act="applied" data-id="${esc(j.id)}" aria-pressed="${st === "applied"}">${st === "applied" ? "Applied ✓" : "Applied"}</button>
+        <button class="btn" data-act="skip" data-id="${esc(j.id)}" aria-pressed="${st === "skip"}">${st === "skip" ? "Unhide" : "Hide"}</button>
+      </div>
+    </article>`;
+  }
+  function emptyBox(h, p) { return `<div class="empty"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`; }
+
+  function render() {
+    const jobs = allJobs();
+    const latest = S.scans[0];
+    const statusJobs = (s) => Object.entries(S.status).filter(([, v]) => v.s === s).map(([id, v]) => jobs.get(id) || (v.job ? { ...v.job, id } : null)).filter(Boolean);
+
+    const lj = latest?.jobs || [];
+    $("sNew").textContent = latest ? lj.length : "–";
+    $("sEarly").textContent = latest ? lj.filter((j) => j.early).length : "–";
+    $("sHigh").textContent = latest ? lj.filter((j) => j.fit >= 75).length : "–";
+    $("sApplied").textContent = Object.values(S.status).filter((v) => v.s === "applied").length;
+    $("lastScan").textContent = latest ? `last scan ${fmtScan.format(new Date(latest.at))} IST (${ago(latest.at)})` : (S.ready ? "no scan yet" : "loading…");
+    $("nextScan").textContent = nextScanLabel();
+
+    const cutoff = Date.now() - 72 * 3600e3;
+    const recentScans = S.scans.filter((s) => new Date(s.at).getTime() >= cutoff);
+    const vis = (list) => list.filter((j) => matches(j) && (S.view === "applied" || S.showHidden || statusOf(j.id) !== "skip"));
+    $("nLatest").textContent = latest ? vis(lj).length : "";
+    $("nRecent").textContent = recentScans.length ? vis(recentScans.flatMap((s) => s.jobs || [])).length : "";
+    $("nSaved").textContent = statusJobs("saved").length || "";
+    $("nApplied").textContent = statusJobs("applied").length || "";
+    document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === S.view)));
+    $("scope-filter").value = S.scope; $("sort").value = S.sort;
+
+    let html = "";
+    let hiddenCount = 0;
+    const section = (label, right, list) => {
+      const all = list.filter(matches);
+      const shown = sortJobs(all.filter((j) => S.view === "applied" || S.showHidden || statusOf(j.id) !== "skip"));
+      hiddenCount += all.length - shown.length;
+      if (!shown.length) return "";
+      return `<div class="group-h"><span>${esc(label)}</span><span>${esc(right)}</span></div><div class="feed">${shown.map(card).join("")}</div>`;
+    };
+    if (!S.scans.length && S.view !== "saved" && S.view !== "applied") {
+      html = S.offline
+        ? emptyBox("Couldn't load the scans", "Check your connection and reload the page.")
+        : emptyBox(S.ready ? "Waiting for the first scan" : "Loading the latest scan", "Scans run at 07:30 and 19:30 IST. New roles appear here, best fit first.");
+    } else if (S.view === "latest") {
+      html = section(`${latest.slot} scan · ${fmtScan.format(new Date(latest.at))}`, `${lj.length} new roles`, lj.slice());
+      if (!html) html = emptyBox("Nothing here with these filters", lj.length ? "Try 'Everything found' or clear the search." : "This scan found no new roles that passed the fit cut. The next one may.");
+    } else if (S.view === "recent") {
+      html = recentScans.map((s) => section(`${s.slot} scan · ${fmtScan.format(new Date(s.at))}`, `${(s.jobs || []).length} new`, (s.jobs || []).slice())).join("");
+      if (!html) html = emptyBox("Nothing in the last 3 days with these filters", "Try 'Everything found' or clear the search.");
+    } else {
+      const list = statusJobs(S.view);
+      html = section(S.view === "saved" ? "Saved for later" : "Applied", `${list.length}`, list);
+      if (!html) html = S.view === "saved"
+        ? emptyBox("No saved roles", "Press Save on any role to keep it here after it drops out of recent scans. Saved roles live in this browser.")
+        : emptyBox("No applications marked yet", "Press Applied after you apply; the role stays here with the date. Marks live in this browser.");
+    }
+    if (hiddenCount && S.view !== "applied") html += `<div class="more"><button class="btn" id="toggleHidden">${S.showHidden ? "Hide" : "Show"} ${hiddenCount} hidden</button></div>`;
+    $("feed").innerHTML = html;
+
+    $("log").innerHTML = S.index.length ? S.index.slice(0, 30).map((s) => {
+      const st = s.stats || {};
+      return `<tr><td class="mono">${esc(fmtScan.format(new Date(s.at)))}</td><td class="num">${st.candidates ?? "–"}</td><td class="num">${st.kept ?? "–"}</td><td class="num">${st.early ?? "–"}</td><td class="num">${st.high_fit ?? "–"}</td><td class="note">${esc((s.sources || []).slice(0, 5).join(", "))}</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="note">No scans yet.</td></tr>`;
+
+    const live = $("live");
+    live.classList.toggle("off", S.offline || !S.ready);
+    $("liveText").textContent = S.offline ? "offline" : S.ready ? "checked " + fmtTime.format(new Date()) : "loading";
+
+    drawScope();
+  }
+
+  // ---------- radar scope ----------
+  const cv = $("scope"), ctx = cv.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let blips = [], sweep = 0;
+  function hashAngle(id) { let h = 2166136261; for (const c of id) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 3600) / 3600 * Math.PI * 2; }
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function drawScope() {
+    const W = cv.width, R = W / 2 - 10, cx = W / 2;
+    const lj = (S.scans[0]?.jobs || []).filter((j) => statusOf(j.id) !== "skip");
+    blips = lj.map((j) => { const a = hashAngle(j.id), r = R * (0.12 + 0.86 * (1 - j.fit / 100)); return { id: j.id, x: cx + r * Math.cos(a), y: cx + r * Math.sin(a), a, early: j.early, fit: j.fit }; });
+    paint();
+  }
+  function paint() {
+    const W = cv.width, R = W / 2 - 10, cx = W / 2;
+    ctx.clearRect(0, 0, W, W);
+    ctx.strokeStyle = css("--scope-ring"); ctx.lineWidth = 1.5;
+    [0.25, 0.5, 0.75, 1].forEach((k) => { ctx.beginPath(); ctx.arc(cx, cx, R * k, 0, Math.PI * 2); ctx.stroke(); });
+    ctx.beginPath(); ctx.moveTo(cx - R, cx); ctx.lineTo(cx + R, cx); ctx.moveTo(cx, cx - R); ctx.lineTo(cx, cx + R); ctx.stroke();
+    const g = ctx.createConicGradient ? ctx.createConicGradient(sweep - 0.9, cx, cx) : null;
+    if (g) {
+      g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(0.14, css("--scope-sweep")); g.addColorStop(0.1401, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cx, R, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const b of blips) {
+      const behind = ((sweep - b.a) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      ctx.globalAlpha = reduce ? 1 : Math.max(0.35, 1 - behind / (Math.PI * 1.6));
+      ctx.fillStyle = b.early ? css("--scope-ping") : css("--scope-blip");
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.fit >= 75 ? 7 : 5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = css("--scope-blip"); ctx.beginPath(); ctx.arc(cx, cx, 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+  if (!reduce) { const tick = () => { sweep = (sweep + 0.018) % (Math.PI * 2); paint(); requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+  else { sweep = -Math.PI / 4; }
+  cv.addEventListener("click", (e) => {
+    const r = cv.getBoundingClientRect(), k = cv.width / r.width;
+    const x = (e.clientX - r.left) * k, y = (e.clientY - r.top) * k;
+    let best = null, bd = 30 * 30;
+    for (const b of blips) { const d = (b.x - x) ** 2 + (b.y - y) ** 2; if (d < bd) { bd = d; best = b; } }
+    if (!best) return;
+    if (S.view !== "latest") { S.view = "latest"; render(); }
+    const el = document.getElementById("job-" + best.id);
+    if (el) { el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1600); }
+  });
+
+  // ---------- interactions ----------
+  document.querySelector(".tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.view = b.dataset.view; remember(); render(); });
+  $("scope-filter").addEventListener("change", (e) => { S.scope = e.target.value; remember(); render(); });
+  $("sort").addEventListener("change", (e) => { S.sort = e.target.value; remember(); render(); });
+  let qt; $("q").addEventListener("input", (e) => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value.trim(); render(); }, 150); });
+  $("feed").addEventListener("click", (e) => {
+    if (e.target.id === "toggleHidden") { S.showHidden = !S.showHidden; render(); return; }
+    const b = e.target.closest("button[data-act]"); if (!b) return;
+    const id = b.dataset.id, act = b.dataset.act;
+    if (statusOf(id) === act) delete S.status[id];
+    else {
+      const j = allJobs().get(id) || S.status[id]?.job;
+      S.status[id] = { s: act, at: new Date().toISOString(), job: j ? { title: j.title, company: j.company, url: j.url, location: j.location || "", fit: j.fit, eligibility: j.eligibility, source: j.source, posted: j.posted || null } : null };
+    }
+    saveStatus(); render();
+  });
+
+  // ---------- data ----------
+  const getJSON = (path) => fetch(path + "?t=" + Date.now(), { cache: "no-store" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  async function load() {
+    try {
+      const idx = await getJSON("data/index.json");
+      S.index = Array.isArray(idx.scans) ? idx.scans : [];
+      const cutoff = Date.now() - 72 * 3600e3;
+      const want = S.index.filter((s, i) => i === 0 || new Date(s.at).getTime() >= cutoff);
+      const have = new Map(S.scans.map((s) => [s.run, s]));
+      const scans = await Promise.all(want.map((s) => (have.get(s.run)?.at === s.at ? have.get(s.run) : getJSON("data/scans/" + encodeURIComponent(s.run) + ".json").catch(() => null))));
+      S.scans = scans.filter((s) => s && s.at).sort((a, b) => b.at.localeCompare(a.at));
+      S.offline = false;
+    } catch (e) { S.offline = !S.scans.length; }
+    S.ready = true;
+    render();
+  }
+  render();
+  load();
+  setInterval(load, 10 * 60 * 1000); // picks up the next scan without a reload
+  addEventListener("storage", (e) => { if (e.key === "radar-status") { try { S.status = JSON.parse(e.newValue || "{}"); } catch (x) {} render(); } });
+})();
+</script>
+</body>
+</html>
