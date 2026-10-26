@@ -329,7 +329,9 @@ form.tune { display: grid; gap: 12px; background: var(--surface); border: 1px so
     const [el, elc] = ELIG[j.eligibility] || [j.eligibility, ""];
     const posted = ago(j.posted);
     const chips = [];
-    if (j.early) chips.push(`<span class="chip early">Early · ${esc(posted || "today")}</span>`);
+    // LinkedIn dates are day-only, so a role from its last-24h search can look older than it is
+    const within24h = j.posted && Date.now() - new Date(j.posted).getTime() < 864e5;
+    if (j.early) chips.push(`<span class="chip early">Early · ${esc(within24h ? posted : "last 24h")}</span>`);
     else if (posted) chips.push(`<span class="chip mono">posted ${esc(posted)}</span>`);
     chips.push(`<span class="chip ${elc}">${esc(el)}</span>`);
     if (j.salary) chips.push(`<span class="chip">${esc(j.salary)}</span>`);
